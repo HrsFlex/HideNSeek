@@ -1,6 +1,11 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, Zap, Eye, MessageCircle } from 'lucide-react';
+import { Crown, Zap, Users, MessageCircle } from 'lucide-react';
+import { Avatar, AvatarFallback } from './ui/avatar';
+import { Badge } from './ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { ScrollArea } from './ui/scroll-area';
+import { cn } from '../lib/utils';
 
 const UsersList = ({ users, currentUsername }) => {
   // Use server-generated avatar if available, otherwise fallback to initials
@@ -18,18 +23,18 @@ const UsersList = ({ users, currentUsername }) => {
 
   const getAvatarBackground = (user) => {
     if (user?.color?.bg) {
-      return `bg-gradient-to-br ${user.color.bg}`;
+      return user.color.bg;
     }
     // Fallback color system
     const colors = [
-      'bg-gradient-to-br from-red-500 to-pink-500',
-      'bg-gradient-to-br from-blue-500 to-cyan-500',
-      'bg-gradient-to-br from-green-500 to-emerald-500',
-      'bg-gradient-to-br from-yellow-500 to-orange-500',
-      'bg-gradient-to-br from-purple-500 to-indigo-500',
-      'bg-gradient-to-br from-pink-500 to-rose-500',
-      'bg-gradient-to-br from-indigo-500 to-purple-500',
-      'bg-gradient-to-br from-teal-500 to-cyan-500',
+      'bg-gradient-to-br from-blue-500 to-blue-600',
+      'bg-gradient-to-br from-green-500 to-green-600',
+      'bg-gradient-to-br from-purple-500 to-purple-600',
+      'bg-gradient-to-br from-pink-500 to-pink-600',
+      'bg-gradient-to-br from-yellow-500 to-yellow-600',
+      'bg-gradient-to-br from-red-500 to-red-600',
+      'bg-gradient-to-br from-indigo-500 to-indigo-600',
+      'bg-gradient-to-br from-teal-500 to-teal-600',
     ];
     let hash = 0;
     for (let i = 0; i < user.username.length; i++) {
@@ -38,19 +43,39 @@ const UsersList = ({ users, currentUsername }) => {
     return colors[Math.abs(hash) % colors.length];
   };
 
-  const getStatusIndicator = (user) => {
+  const getStatusInfo = (user) => {
     const now = new Date();
     const lastSeen = user.lastSeen ? new Date(user.lastSeen) : null;
     const timeDiff = lastSeen ? now - lastSeen : Infinity;
     
     if (user.isTyping) {
-      return { status: 'typing', component: <div className="typing-indicator" /> };
+      return { 
+        status: 'typing', 
+        label: 'Typing...', 
+        variant: 'default',
+        className: 'status-indicator bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+      };
     } else if (timeDiff < 30000) { // Less than 30 seconds
-      return { status: 'online', component: <div className="status-online" /> };
+      return { 
+        status: 'online', 
+        label: 'Online', 
+        variant: 'default',
+        className: 'status-online'
+      };
     } else if (timeDiff < 300000) { // Less than 5 minutes
-      return { status: 'away', component: <div className="status-away" /> };
+      return { 
+        status: 'away', 
+        label: 'Away', 
+        variant: 'secondary',
+        className: 'status-away'
+      };
     } else {
-      return { status: 'offline', component: <div className="status-offline" /> };
+      return { 
+        status: 'offline', 
+        label: 'Offline', 
+        variant: 'outline',
+        className: 'status-offline'
+      };
     }
   };
 
@@ -58,200 +83,198 @@ const UsersList = ({ users, currentUsername }) => {
     // Current user first
     if (a.username === currentUsername) return -1;
     if (b.username === currentUsername) return 1;
+    
     // Online users before offline
-    const statusA = getStatusIndicator(a).status;
-    const statusB = getStatusIndicator(b).status;
+    const statusA = getStatusInfo(a).status;
+    const statusB = getStatusInfo(b).status;
     const statusOrder = { typing: 0, online: 1, away: 2, offline: 3 };
     if (statusOrder[statusA] !== statusOrder[statusB]) {
       return statusOrder[statusA] - statusOrder[statusB];
     }
+    
     // Then by join time
     return new Date(a.joinedAt) - new Date(b.joinedAt);
   });
 
-  const onlineCount = users.filter(user => getStatusIndicator(user).status !== 'offline').length;
+  const onlineCount = users.filter(user => getStatusInfo(user).status !== 'offline').length;
   const typingCount = users.filter(user => user.isTyping).length;
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      {/* Particle system background */}
-      <div className="particle-system">
-        {[...Array(8)].map((_, i) => (
-          <div
-            key={i}
-            className="particle"
-            style={{
-              left: `${10 + i * 12}%`,
-              width: `${4 + Math.random() * 8}px`,
-              height: `${4 + Math.random() * 8}px`,
-              animationDelay: `${i * 0.8}s`,
-              animationDuration: `${6 + Math.random() * 4}s`
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Enhanced Header */}
-      <motion.div 
-        className="p-6 border-b border-white/20 hyper-glass-intense"
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-xl font-bold text-white flex items-center space-x-3">
-              <Zap className="w-6 h-6 text-yellow-400" />
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <Card className="m-4 mb-2 modern-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center justify-between text-lg">
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-yellow-400" />
               <span>Live Users</span>
-            </h3>
-            <div className="flex items-center space-x-4 mt-2">
-              <span className="text-sm text-emerald-400 font-medium flex items-center space-x-1">
-                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                <span>{onlineCount} online</span>
-              </span>
-              {typingCount > 0 && (
-                <span className="text-sm text-yellow-400 font-medium flex items-center space-x-1">
-                  <MessageCircle className="w-3 h-3" />
-                  <span>{typingCount} typing</span>
-                </span>
-              )}
             </div>
+            <Badge variant="secondary" className="text-sm font-bold">
+              {users.length}
+            </Badge>
+          </CardTitle>
+          
+          <div className="flex items-center gap-4 pt-2">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              <span className="text-xs text-muted-foreground">
+                {onlineCount} online
+              </span>
+            </div>
+            
+            {typingCount > 0 && (
+              <div className="flex items-center gap-1.5">
+                <MessageCircle className="w-3 h-3 text-yellow-400" />
+                <span className="text-xs text-muted-foreground">
+                  {typingCount} typing
+                </span>
+              </div>
+            )}
           </div>
-          <div className="text-2xl font-bold text-white/80">
-            {users.length}
-          </div>
-        </div>
-      </motion.div>
+        </CardHeader>
+      </Card>
 
-      {/* Enhanced Users List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        <AnimatePresence>
-          {sortedUsers.map((user, index) => {
-            const statusInfo = getStatusIndicator(user);
-            return (
-              <motion.div
-                key={user.id}
-                className="user-card group"
-                initial={{ opacity: 0, x: 30, scale: 0.9 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: -30, scale: 0.9 }}
-                transition={{ 
-                  delay: index * 0.05, 
-                  duration: 0.4,
-                  type: 'spring',
-                  stiffness: 200
-                }}
-                layout
-                whileHover={{ scale: 1.02, y: -2 }}
-              >
-                {/* Enhanced Avatar */}
-                <div className="avatar-container relative">
-                  <div className={`avatar-inner ${getAvatarBackground(user)}`}>
-                    <span className="text-white font-bold text-lg">
-                      {getAvatar(user)}
-                    </span>
-                  </div>
-                  
-                  {/* Advanced Status Indicator */}
-                  <motion.div 
-                    className="absolute -bottom-1 -right-1"
-                    whileHover={{ scale: 1.2 }}
-                    animate={statusInfo.status === 'typing' ? { 
-                      scale: [1, 1.2, 1],
-                      rotate: [0, 10, -10, 0]
-                    } : {}}
-                    transition={{ repeat: statusInfo.status === 'typing' ? Infinity : 0, duration: 1 }}
-                  >
-                    {statusInfo.component}
-                  </motion.div>
-                </div>
-
-                {/* Enhanced User Info */}
-                <div className="flex-1 min-w-0 ml-4">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <motion.p 
-                      className="text-white font-bold text-lg truncate"
-                      whileHover={{ scale: 1.05 }}
-                    >
-                      {user.username === currentUsername ? (
-                        <span className="flex items-center space-x-2">
-                          <span>You</span>
-                          <Crown className="w-4 h-4 text-yellow-400" />
-                        </span>
-                      ) : (
-                        user.username
-                      )}
-                    </motion.p>
-                    
-                    {user.isTyping && (
-                      <motion.div
-                        className="typing-dots"
-                        initial={{ opacity: 0, scale: 0 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                      >
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </motion.div>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center space-x-3 text-xs">
-                    <span className="text-white/60 font-medium">
-                      Joined {new Date(user.joinedAt).toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                    
-                    {user.lastSeen && (
-                      <span className="text-white/40 text-xs">
-                        Last seen {Math.floor((new Date() - new Date(user.lastSeen)) / 1000)}s ago
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Status Badge */}
-                <motion.div 
-                  className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    statusInfo.status === 'typing' ? 'bg-yellow-500/20 text-yellow-300' :
-                    statusInfo.status === 'online' ? 'bg-emerald-500/20 text-emerald-300' :
-                    statusInfo.status === 'away' ? 'bg-orange-500/20 text-orange-300' :
-                    'bg-gray-500/20 text-gray-400'
-                  }`}
-                  whileHover={{ scale: 1.1 }}
-                  animate={statusInfo.status === 'typing' ? { 
-                    boxShadow: [
-                      '0 0 10px rgba(245, 158, 11, 0.3)',
-                      '0 0 20px rgba(245, 158, 11, 0.6)',
-                      '0 0 10px rgba(245, 158, 11, 0.3)'
-                    ]
-                  } : {}}
-                  transition={{ repeat: statusInfo.status === 'typing' ? Infinity : 0, duration: 1.5 }}
+      {/* Users List */}
+      <ScrollArea className="flex-1 px-4">
+        <div className="space-y-2 pb-4">
+          <AnimatePresence>
+            {sortedUsers.map((user, index) => {
+              const statusInfo = getStatusInfo(user);
+              const isCurrentUser = user.username === currentUsername;
+              
+              return (
+                <motion.div
+                  key={user.id}
+                  initial={{ opacity: 0, x: 20, scale: 0.95 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: -20, scale: 0.95 }}
+                  transition={{ 
+                    delay: index * 0.05, 
+                    duration: 0.3,
+                    type: 'spring',
+                    stiffness: 200
+                  }}
+                  layout
                 >
-                  {statusInfo.status === 'typing' ? 'Typing...' :
-                   statusInfo.status === 'online' ? 'Online' :
-                   statusInfo.status === 'away' ? 'Away' : 'Offline'}
-                </motion.div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-      </div>
+                  <Card 
+                    className={cn(
+                      "modern-card hover:bg-accent/50 transition-all duration-200 cursor-pointer group",
+                      isCurrentUser && "ring-2 ring-primary/50 bg-primary/5"
+                    )}
+                  >
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-3">
+                        {/* Avatar */}
+                        <motion.div
+                          className="relative"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          <Avatar className="w-10 h-10 border-2 border-border">
+                            <AvatarFallback className={cn("text-white font-semibold", getAvatarBackground(user))}>
+                              {getAvatar(user)}
+                            </AvatarFallback>
+                          </Avatar>
+                          
+                          {/* Status indicator */}
+                          <div className="absolute -bottom-0.5 -right-0.5">
+                            {statusInfo.status === 'typing' ? (
+                              <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse border-2 border-background" />
+                            ) : statusInfo.status === 'online' ? (
+                              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse border-2 border-background" />
+                            ) : statusInfo.status === 'away' ? (
+                              <div className="w-3 h-3 bg-yellow-500 rounded-full border-2 border-background" />
+                            ) : (
+                              <div className="w-3 h-3 bg-gray-400 rounded-full border-2 border-background" />
+                            )}
+                          </div>
+                        </motion.div>
 
-      {/* Enhanced Footer */}
-      <motion.div 
-        className="p-4 border-t border-white/20 hyper-glass text-center"
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
-      >
-        <div className="flex items-center justify-center space-x-2 text-white/70 text-sm">
-          <Eye className="w-4 h-4" />
-          <span className="font-medium">Anonymous Chat • End-to-End View Deletion</span>
+                        {/* User Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span 
+                              className={cn(
+                                "font-semibold truncate",
+                                isCurrentUser ? "text-primary" : "text-foreground"
+                              )}
+                            >
+                              {isCurrentUser ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span>You</span>
+                                  <Crown className="w-3.5 h-3.5 text-yellow-400" />
+                                </div>
+                              ) : (
+                                user.username
+                              )}
+                            </span>
+                            
+                            {user.isTyping && (
+                              <motion.div
+                                className="typing-indicator ml-2"
+                                initial={{ opacity: 0, scale: 0 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                              >
+                                <div className="typing-dot"></div>
+                                <div className="typing-dot"></div>
+                                <div className="typing-dot"></div>
+                              </motion.div>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>
+                              Joined {new Date(user.joinedAt).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                            
+                            {user.lastSeen && (
+                              <>
+                                <span>•</span>
+                                <span>
+                                  {Math.floor((new Date() - new Date(user.lastSeen)) / 1000)}s ago
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        <motion.div
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          <Badge 
+                            variant={statusInfo.variant}
+                            className={cn(
+                              "text-xs font-medium px-2 py-1",
+                              statusInfo.className
+                            )}
+                          >
+                            {statusInfo.label}
+                          </Badge>
+                        </motion.div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         </div>
-      </motion.div>
+      </ScrollArea>
+
+      {/* Footer */}
+      <Card className="m-4 mt-2 modern-card">
+        <CardContent className="p-3 text-center">
+          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <Users className="w-3 h-3" />
+            <span>Anonymous Chat • Auto-Delete Messages</span>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

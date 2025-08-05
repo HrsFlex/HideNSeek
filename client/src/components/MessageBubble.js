@@ -1,5 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Eye, Clock, Flame } from 'lucide-react';
+import { Avatar, AvatarFallback } from './ui/avatar';
+import { Badge } from './ui/badge';
+import { cn } from '../lib/utils';
 
 const MessageBubble = ({ message, isOwn, currentUsername, user }) => {
   const formatTime = (timestamp) => {
@@ -25,18 +29,18 @@ const MessageBubble = ({ message, isOwn, currentUsername, user }) => {
 
   const getAvatarBackground = () => {
     if (user?.color?.bg) {
-      return `bg-gradient-to-br ${user.color.bg}`;
+      return user.color.bg;
     }
-    // Fallback color system
+    // Fallback color system using CSS variables
     const colors = [
-      'bg-gradient-to-br from-red-500 to-pink-500',
-      'bg-gradient-to-br from-blue-500 to-cyan-500',
-      'bg-gradient-to-br from-green-500 to-emerald-500',
-      'bg-gradient-to-br from-yellow-500 to-orange-500',
-      'bg-gradient-to-br from-purple-500 to-indigo-500',
-      'bg-gradient-to-br from-pink-500 to-rose-500',
-      'bg-gradient-to-br from-indigo-500 to-purple-500',
-      'bg-gradient-to-br from-teal-500 to-cyan-500',
+      'bg-gradient-to-br from-blue-500 to-blue-600',
+      'bg-gradient-to-br from-green-500 to-green-600',
+      'bg-gradient-to-br from-purple-500 to-purple-600',
+      'bg-gradient-to-br from-pink-500 to-pink-600',
+      'bg-gradient-to-br from-yellow-500 to-yellow-600',
+      'bg-gradient-to-br from-red-500 to-red-600',
+      'bg-gradient-to-br from-indigo-500 to-indigo-600',
+      'bg-gradient-to-br from-teal-500 to-teal-600',
     ];
     let hash = 0;
     for (let i = 0; i < message.username.length; i++) {
@@ -45,128 +49,154 @@ const MessageBubble = ({ message, isOwn, currentUsername, user }) => {
     return colors[Math.abs(hash) % colors.length];
   };
 
+  const getOnlineStatus = () => {
+    if (!user) return null;
+    
+    const now = new Date();
+    const lastSeen = user.lastSeen ? new Date(user.lastSeen) : null;
+    const timeDiff = lastSeen ? now - lastSeen : Infinity;
+    
+    if (user.isTyping) {
+      return <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />;
+    } else if (timeDiff < 30000) { // Less than 30 seconds
+      return <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />;
+    } else if (timeDiff < 300000) { // Less than 5 minutes
+      return <div className="w-2 h-2 bg-yellow-500 rounded-full" />;
+    } else {
+      return <div className="w-2 h-2 bg-gray-400 rounded-full" />;
+    }
+  };
+
   return (
     <motion.div
-      className={`message-container flex ${isOwn ? 'justify-end' : 'justify-start'} mb-6`}
-      initial={{ opacity: 0, y: 30, scale: 0.9 }}
+      className={cn(
+        "flex mb-4 animate-slide-in-up",
+        isOwn ? "justify-end" : "justify-start"
+      )}
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
       layout
     >
-      {/* Floating particles for visual effect */}
-      <div className="floating-elements">
-        <div className="floating-particle" style={{ left: '10%', animationDelay: '0s' }} />
-        <div className="floating-particle" style={{ left: '80%', animationDelay: '2s' }} />
-      </div>
-
-      <div className={`flex items-end space-x-3 max-w-sm lg:max-w-lg ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
-        {/* Enhanced Avatar */}
+      <div className={cn(
+        "flex items-end gap-2 max-w-xs sm:max-w-md",
+        isOwn ? "flex-row-reverse" : "flex-row"
+      )}>
+        {/* Avatar for received messages */}
         {!isOwn && (
           <motion.div
-            className="avatar-container flex-shrink-0"
-            whileHover={{ scale: 1.15, rotate: 5 }}
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
+            className="relative"
+            whileHover={{ scale: 1.1 }}
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
             transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
           >
-            <div className={`avatar-inner ${getAvatarBackground()}`}>
-              <span className="text-white font-bold text-sm">
+            <Avatar className="w-8 h-8 border-2 border-border">
+              <AvatarFallback className={cn("text-white font-semibold text-xs", getAvatarBackground())}>
                 {getAvatar()}
-              </span>
+              </AvatarFallback>
+            </Avatar>
+            
+            {/* Status indicator */}
+            <div className="absolute -bottom-0.5 -right-0.5">
+              {getOnlineStatus()}
             </div>
           </motion.div>
         )}
 
-        {/* Enhanced Message Bubble */}
+        {/* Message Content */}
         <motion.div
-          className={`chat-bubble interactive-hover ${isOwn ? 'chat-bubble-sent' : 'chat-bubble-received'} ${
-            message.isExpired ? 'opacity-60 shimmer-effect' : ''
-          } relative overflow-hidden`}
-          whileHover={{ 
-            scale: message.isExpired ? 1 : 1.03,
-            y: -2
-          }}
-          transition={{ duration: 0.3, type: 'spring', stiffness: 300 }}
-          animate={message.isExpired ? { 
-            scale: [1, 0.98, 1],
-            opacity: [1, 0.4, 0.6] 
-          } : {}}
+          className={cn(
+            "relative group rounded-2xl px-4 py-3 shadow-lg max-w-full break-words",
+            isOwn 
+              ? "message-sent text-primary-foreground" 
+              : "message-received text-card-foreground",
+            message.isExpired && "opacity-60 border-destructive/50"
+          )}
+          whileHover={{ scale: 1.02 }}
+          transition={{ duration: 0.2 }}
         >
-          {/* Glow effect overlay */}
-          <div className="glow-effect absolute inset-0 -z-10" />
-
-          {/* Username with enhanced styling */}
+          {/* Username for received messages */}
           {!isOwn && (
             <motion.div
-              className="text-xs font-semibold text-white/90 mb-2 flex items-center space-x-2"
+              className="flex items-center gap-2 mb-1"
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <span>{message.username === currentUsername ? 'You' : message.username}</span>
-              {user?.status === 'online' && (
-                <div className="online-indicator" />
+              <span className="text-xs font-semibold text-muted-foreground">
+                {message.username === currentUsername ? 'You' : message.username}
+              </span>
+              {user?.isTyping && (
+                <div className="typing-indicator">
+                  <div className="typing-dot"></div>
+                  <div className="typing-dot"></div>
+                  <div className="typing-dot"></div>
+                </div>
               )}
             </motion.div>
           )}
 
-          {/* Enhanced Message Text */}
+          {/* Message Text */}
           <motion.div
-            className="text-white leading-relaxed font-medium"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.15, type: 'spring' }}
+            className="text-sm leading-relaxed"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.15 }}
           >
             {message.text}
           </motion.div>
 
-          {/* Enhanced Timestamp and Status */}
+          {/* Timestamp and Status */}
           <motion.div
-            className={`text-xs mt-2 flex items-center justify-between ${isOwn ? 'text-white/80' : 'text-white/60'}`}
+            className="flex items-center justify-between mt-2 text-xs opacity-70"
             initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
+            animate={{ opacity: 0.7, y: 0 }}
+            transition={{ delay: 0.3 }}
           >
-            <span className="font-medium">{formatTime(message.timestamp)}</span>
-            {message.isExpired ? (
-              <motion.span 
-                className="text-red-400 text-xs ml-2 flex items-center space-x-1"
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ repeat: Infinity, duration: 2 }}
-              >
-                <span>🔥</span>
-                <span>Burned</span>
-              </motion.span>
-            ) : isOwn && message.viewCount !== undefined && message.totalUsers > 1 ? (
-              <motion.span 
-                className="text-blue-300 text-xs ml-2 flex items-center space-x-1"
-                whileHover={{ scale: 1.1 }}
-              >
-                <span>👁️</span>
-                <span>{message.viewCount}/{message.totalUsers}</span>
-              </motion.span>
-            ) : null}
+            <div className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              <span>{formatTime(message.timestamp)}</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {message.isExpired ? (
+                <Badge variant="destructive" className="text-xs px-1.5 py-0.5 h-auto">
+                  <Flame className="w-3 h-3 mr-1" />
+                  Burned
+                </Badge>
+              ) : isOwn && message.viewCount !== undefined && message.totalUsers > 1 ? (
+                <Badge variant="secondary" className="text-xs px-1.5 py-0.5 h-auto">
+                  <Eye className="w-3 h-3 mr-1" />
+                  {message.viewCount}/{message.totalUsers}
+                </Badge>
+              ) : null}
+            </div>
           </motion.div>
 
-          {/* Enhanced Message tail with glow */}
+          {/* Message tail (speech bubble pointer) */}
           <div
-            className={`message-tail ${
-              isOwn ? 'message-tail-sent' : 'message-tail-received'
-            }`}
+            className={cn(
+              "absolute bottom-2 w-3 h-3 rotate-45",
+              isOwn 
+                ? "-right-1.5 bg-primary" 
+                : "-left-1.5 bg-muted border-l border-b border-border"
+            )}
           />
 
-          {/* Typing dots for expired messages */}
+          {/* Expired message overlay */}
           {message.isExpired && (
             <motion.div
-              className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-3xl"
+              className="absolute inset-0 bg-destructive/10 backdrop-blur-[1px] rounded-2xl flex items-center justify-center"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5 }}
             >
-              <div className="typing-dots">
-                <span></span>
-                <span></span>
-                <span></span>
+              <div className="typing-indicator">
+                <div className="typing-dot bg-destructive"></div>
+                <div className="typing-dot bg-destructive"></div>
+                <div className="typing-dot bg-destructive"></div>
               </div>
             </motion.div>
           )}

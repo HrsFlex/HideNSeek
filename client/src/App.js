@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -7,6 +7,10 @@ import ChatRoom from './components/ChatRoom';
 import { useChat } from './hooks/useChat';
 
 function App() {
+  // Enable dark mode by default
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+  }, []);
   const [isConnecting, setIsConnecting] = useState(false);
   
   const {
@@ -52,12 +56,13 @@ function App() {
         position="top-center"
         toastOptions={{
           duration: 4000,
+          className: 'modern-card',
           style: {
-            background: 'rgba(255, 255, 255, 0.1)',
-            backdropFilter: 'blur(10px)',
-            color: '#fff',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            borderRadius: '12px',
+            background: 'hsl(var(--card))',
+            color: 'hsl(var(--card-foreground))',
+            border: '1px solid hsl(var(--border))',
+            borderRadius: '0.75rem',
+            boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
           },
         }}
       />
