@@ -6,16 +6,13 @@ import MessageBubble from './MessageBubble';
 import UsersList from './UsersList';
 import TypingIndicator from './TypingIndicator';
 
-const ChatRoom = ({ room, socket, username, onLeaveRoom }) => {
+const ChatRoom = ({ room, messages, users, userId, onSendMessage, onLeaveRoom }) => {
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState(room.messages || []);
-  const [users, setUsers] = useState(room.users || []);
-  const [typingUsers, setTypingUsers] = useState([]);
   const [showUsers, setShowUsers] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   
   const messagesEndRef = useRef(null);
-  const typingTimeoutRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -25,76 +22,23 @@ const ChatRoom = ({ room, socket, username, onLeaveRoom }) => {
     scrollToBottom();
   }, [messages]);
 
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on('new-message', (newMessage) => {
-      setMessages(prev => [...prev, newMessage]);
-    });
-
-    socket.on('user-joined', (user) => {
-      toast.success(`${user.username} joined the room`);
-    });
-
-    socket.on('user-left', (user) => {
-      toast(`${user.username} left the room`, { icon: '👋' });
-    });
-
-    socket.on('users-updated', (updatedUsers) => {
-      setUsers(updatedUsers);
-    });
-
-    socket.on('user-typing', ({ userId, username: typingUsername, isTyping }) => {
-      if (isTyping) {
-        setTypingUsers(prev => {
-          if (!prev.find(user => user.userId === userId)) {
-            return [...prev, { userId, username: typingUsername }];
-          }
-          return prev;
-        });
-      } else {
-        setTypingUsers(prev => prev.filter(user => user.userId !== userId));
-      }
-    });
-
-    return () => {
-      socket.off('new-message');
-      socket.off('user-joined');
-      socket.off('user-left');
-      socket.off('users-updated');
-      socket.off('user-typing');
-    };
-  }, [socket]);
-
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     
-    if (!message.trim() || !socket) return;
+    if (!message.trim() || isSending) return;
 
-    socket.emit('send-message', { text: message.trim() });
-    setMessage('');
+    setIsSending(true);
+    const success = await onSendMessage(message.trim());
     
-    // Stop typing indicator
-    socket.emit('typing', false);
+    if (success) {
+      setMessage('');
+    }
+    
+    setIsSending(false);
   };
 
   const handleTyping = (e) => {
     setMessage(e.target.value);
-    
-    if (!socket) return;
-
-    // Emit typing indicator
-    socket.emit('typing', true);
-    
-    // Clear previous timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-    
-    // Stop typing after 3 seconds of inactivity
-    typingTimeoutRef.current = setTimeout(() => {
-      socket.emit('typing', false);
-    }, 3000);
   };
 
   const copyRoomCode = async () => {
@@ -110,12 +54,12 @@ const ChatRoom = ({ room, socket, username, onLeaveRoom }) => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
+      {/* Enhanced Header */}
       <motion.header
-        className="glass-effect border-b border-white/10 p-4"
+        className="hyper-glass-intense border-b border-white/20 p-6"
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.3 }}
+        transition={{ duration: 0.5, type: 'spring' }}
       >
         <div className="flex items-center justify-between max-w-4xl mx-auto">
           <div className="flex items-center space-x-4">
@@ -171,73 +115,139 @@ const ChatRoom = ({ room, socket, username, onLeaveRoom }) => {
       </motion.header>
 
       <div className="flex-1 flex max-w-4xl mx-auto w-full">
-        {/* Chat Area */}
+        {/* Enhanced Chat Area */}
         <motion.div
-          className="flex-1 flex flex-col"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
+          className="flex-1 flex flex-col relative overflow-hidden"
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2, duration: 0.6 }}
         >
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Particle system for chat area */}
+          <div className="particle-system">
+            {[...Array(12)].map((_, i) => (
+              <div
+                key={i}
+                className="particle"
+                style={{
+                  left: `${5 + i * 8}%`,
+                  width: `${3 + Math.random() * 6}px`,
+                  height: `${3 + Math.random() * 6}px`,
+                  animationDelay: `${i * 1.2}s`,
+                  animationDuration: `${8 + Math.random() * 6}s`
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Enhanced Messages Container */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
             <AnimatePresence>
-              {messages.map((msg, index) => (
-                <MessageBubble
-                  key={msg.id || index}
-                  message={msg}
-                  isOwn={msg.userId === socket?.id}
-                  currentUsername={username}
-                />
-              ))}
+              {messages.map((msg, index) => {
+                // Find the user object for this message
+                const messageUser = users.find(u => u.id === msg.userId);
+                return (
+                  <MessageBubble
+                    key={msg.id || index}
+                    message={msg}
+                    isOwn={msg.userId === userId}
+                    currentUsername={room.username}
+                    user={messageUser}
+                  />
+                );
+              })}
             </AnimatePresence>
-            
-            {/* Typing Indicator */}
-            <TypingIndicator users={typingUsers} />
             
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Message Input */}
+          {/* Enhanced Message Input */}
           <motion.div
-            className="p-4 glass-effect border-t border-white/10"
+            className="p-6 hyper-glass-intense border-t border-white/20 relative overflow-hidden"
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3 }}
+            transition={{ delay: 0.3, type: 'spring' }}
           >
-            <form onSubmit={handleSendMessage} className="flex space-x-4">
-              <input
-                type="text"
-                value={message}
-                onChange={handleTyping}
-                placeholder="Type your message..."
-                className="input-field flex-1"
-                maxLength="500"
-                autoFocus
-              />
+            <div className="glow-effect absolute inset-0 -z-10" />
+            
+            <form onSubmit={handleSendMessage} className="flex space-x-4 relative z-10">
+              <div className="flex-1 relative">
+                <motion.input
+                  type="text"
+                  value={message}
+                  onChange={handleTyping}
+                  placeholder="✨ Share your thoughts anonymously..."
+                  className="input-field w-full shimmer-effect"
+                  maxLength="500"
+                  autoFocus
+                  whileFocus={{ scale: 1.02 }}
+                  transition={{ type: 'spring', stiffness: 300 }}
+                />
+                
+                {/* Character counter */}
+                <motion.div 
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-xs text-white/40"
+                  animate={{ opacity: message.length > 400 ? 1 : 0 }}
+                >
+                  {message.length}/500
+                </motion.div>
+              </div>
+              
               <motion.button
                 type="submit"
-                disabled={!message.trim()}
-                className="btn-primary px-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                whileHover={{ scale: message.trim() ? 1.05 : 1 }}
-                whileTap={{ scale: message.trim() ? 0.95 : 1 }}
+                disabled={!message.trim() || isSending}
+                className="btn-primary px-6 py-4 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+                whileHover={{ 
+                  scale: (message.trim() && !isSending) ? 1.05 : 1,
+                  rotate: (message.trim() && !isSending) ? 2 : 0
+                }}
+                whileTap={{ scale: (message.trim() && !isSending) ? 0.95 : 1 }}
+                animate={message.trim() && !isSending ? {
+                  boxShadow: [
+                    '0 20px 40px -12px rgba(147, 51, 234, 0.4)',
+                    '0 25px 50px -12px rgba(147, 51, 234, 0.6)',
+                    '0 20px 40px -12px rgba(147, 51, 234, 0.4)'
+                  ]
+                } : {}}
+                transition={{ repeat: message.trim() && !isSending ? Infinity : 0, duration: 2 }}
               >
-                <Send className="w-5 h-5" />
+                {isSending ? (
+                  <motion.div 
+                    className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full"
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                  />
+                ) : (
+                  <motion.div
+                    whileHover={{ x: 2 }}
+                    transition={{ type: 'spring', stiffness: 400 }}
+                  >
+                    <Send className="w-6 h-6" />
+                  </motion.div>
+                )}
               </motion.button>
             </form>
           </motion.div>
         </motion.div>
 
-        {/* Users Sidebar */}
+        {/* Enhanced Users Sidebar */}
         <AnimatePresence>
           {showUsers && (
             <motion.div
-              className="w-80 glass-effect border-l border-white/10"
-              initial={{ x: 320, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: 320, opacity: 0 }}
-              transition={{ duration: 0.3 }}
+              className="w-96 hyper-glass-intense border-l border-white/20 relative overflow-hidden"
+              initial={{ x: 400, opacity: 0, scale: 0.95 }}
+              animate={{ x: 0, opacity: 1, scale: 1 }}
+              exit={{ x: 400, opacity: 0, scale: 0.95 }}
+              transition={{ 
+                duration: 0.4, 
+                type: 'spring', 
+                stiffness: 300,
+                damping: 30
+              }}
             >
-              <UsersList users={users} currentUsername={username} />
+              {/* Sidebar glow effect */}
+              <div className="glow-effect absolute inset-0 -z-10" />
+              
+              <UsersList users={users} currentUsername={room.username} />
             </motion.div>
           )}
         </AnimatePresence>

@@ -1,63 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import JoinRoom from './components/JoinRoom';
 import ChatRoom from './components/ChatRoom';
-import { useSocket } from './hooks/useSocket';
+import { useChat } from './hooks/useChat';
 
 function App() {
-  const [currentRoom, setCurrentRoom] = useState(null);
-  const [username, setUsername] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   
-  const socket = useSocket();
+  const {
+    currentRoom,
+    messages,
+    users,
+    isConnected,
+    userId,
+    joinRoom,
+    sendMessage,
+    leaveRoom
+  } = useChat();
 
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on('connect', () => {
-      setIsConnected(true);
-    });
-
-    socket.on('disconnect', () => {
-      setIsConnected(false);
-      setCurrentRoom(null);
-    });
-
-    socket.on('room-joined', (data) => {
-      setCurrentRoom(data);
-      setUsername(data.username);
-    });
-
-    socket.on('error', (error) => {
-      console.error('Socket error:', error);
-    });
-
-    return () => {
-      socket.off('connect');
-      socket.off('disconnect');
-      socket.off('room-joined');
-      socket.off('error');
-    };
-  }, [socket]);
-
-  const handleJoinRoom = (roomCode, userName, settings) => {
-    if (socket && isConnected) {
-      socket.emit('join-room', {
-        roomCode,
-        username: userName,
-        settings
-      });
+  const handleJoinRoom = async (roomCode, userName, settings) => {
+    setIsConnecting(true);
+    
+    const result = await joinRoom(roomCode, userName, settings);
+    
+    setIsConnecting(false);
+    
+    if (!result.success) {
+      toast.error(result.error || 'Failed to join room');
     }
   };
 
   const handleLeaveRoom = () => {
-    if (socket) {
-      socket.disconnect();
-      socket.connect();
+    leaveRoom();
+  };
+
+  const handleSendMessage = async (text) => {
+    const result = await sendMessage(text);
+    
+    if (!result.success) {
+      toast.error(result.error || 'Failed to send message');
     }
-    setCurrentRoom(null);
-    setUsername('');
+    
+    return result.success;
   };
 
   return (
@@ -87,7 +73,8 @@ function App() {
           >
             <JoinRoom
               onJoinRoom={handleJoinRoom}
-              isConnected={isConnected}
+              isConnected={!isConnecting}
+              isConnecting={isConnecting}
             />
           </motion.div>
         ) : (
@@ -100,8 +87,10 @@ function App() {
           >
             <ChatRoom
               room={currentRoom}
-              socket={socket}
-              username={username}
+              messages={messages}
+              users={users}
+              userId={userId}
+              onSendMessage={handleSendMessage}
               onLeaveRoom={handleLeaveRoom}
             />
           </motion.div>

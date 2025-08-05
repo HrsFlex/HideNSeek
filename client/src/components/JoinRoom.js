@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { MessageCircle, Users, Clock, Settings, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const JoinRoom = ({ onJoinRoom, isConnected }) => {
+const JoinRoom = ({ onJoinRoom, isConnected, isConnecting }) => {
   const [roomCode, setRoomCode] = useState('');
   const [username, setUsername] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -19,11 +19,10 @@ const JoinRoom = ({ onJoinRoom, isConnected }) => {
     toast.success('Room code generated!');
   };
 
-  const handleJoin = (e) => {
+  const handleJoin = async (e) => {
     e.preventDefault();
     
-    if (!isConnected) {
-      toast.error('Connecting to server...');
+    if (isConnecting) {
       return;
     }
     
@@ -37,7 +36,7 @@ const JoinRoom = ({ onJoinRoom, isConnected }) => {
       return;
     }
 
-    onJoinRoom(roomCode.trim(), username.trim(), settings);
+    await onJoinRoom(roomCode.trim(), username.trim(), settings);
   };
 
   return (
@@ -215,18 +214,18 @@ const JoinRoom = ({ onJoinRoom, isConnected }) => {
 
           <motion.button
             type="submit"
-            disabled={!isConnected}
+            disabled={isConnecting}
             className="btn-primary w-full flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: isConnecting ? 1 : 1.02 }}
+            whileTap={{ scale: isConnecting ? 1 : 0.98 }}
           >
-            {!isConnected ? (
+            {isConnecting ? (
               <>
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Connecting...</span>
+                <span>Joining...</span>
               </>
             ) : (
               <>
